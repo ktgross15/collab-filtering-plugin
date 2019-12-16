@@ -1,0 +1,124 @@
+{
+    "meta": {
+        "label": "Score",
+        "description": "Score a dataset of user/item ratings using a collaborative filtering model. \n The input dataset should have a column with all users that you'd like to score, and a column with all items that you'd like to score. \n This input dataset does not need all combinations of users/items as individual rows, rather the user and item columns just need all values you'd like to score. \n The output dataset will have a prediction, according to the chosen Collaborative Filtering model, for each user/item combination in the input dataset. ",
+        "icon": "icon-trophy"
+    },
+    "kind": "PYTHON",
+    "selectableFromDataset": "input_dataset",
+    "inputRoles": [
+        {
+            "name": "input_dataset",
+            "label": "The Baseline Ratings to Score",
+            "description": "This Dataset should have one row per rating -- with a userID column, itemID column, and rating value column.",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        },
+        {
+            "name": "grid_search_models",
+            "label": "Folder with Trained CF Models",
+            "description": "Folder with CF Model for Scoring",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsManagedFolder": true,
+            "acceptsDataset": false
+        }
+    ],
+    "outputRoles": [
+        {
+            "name": "all_predictions",
+            "label": "All predictions",
+            "description": "CF predicted ratings for each User/Item combination",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "params": [
+        {
+            "name": "user_id_col",
+            "label": "User ID Column",
+            "type": "COLUMN",
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "item_id_col",
+            "label": "Item ID Column",
+            "type": "COLUMN",
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "rating_col",
+            "label": "Rating Column",
+            "type": "COLUMN",
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "ratings_scale_min",
+            "label": "Minimum Rating Value",
+            "type": "DOUBLE",
+            "defaultValue": 1,
+            "description": "Should match training recipe."
+        },
+        {
+            "name": "ratings_scale_max",
+            "label": "Maximum Rating Value",
+            "type": "DOUBLE",
+            "defaultValue": 5,
+            "description": "Should match training recipe."
+        },
+        {
+            "name": "selected_algoritm",
+            "label": "Model",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "svd",
+                    "label": "SVD"
+                },
+                {
+                    "value": "svdpp",
+                    "label": "SVD++"
+                },
+                {
+                    "value": "nmf",
+                    "label": "NMF"
+                },
+                {
+                    "value": "knnbaseline",
+                    "label": "KNN Baseline"
+                },
+                {
+                    "value": "knnbasic",
+                    "label": "KNN Basic"
+                },
+                {
+                    "value": "knnwithmeans",
+                    "label": "KNN with Means"
+                },
+                {
+                    "value": "knnwithzscore",
+                    "label": "KNN with ZScore"
+                },
+                {
+                    "value": "normalpredictor",
+                    "label": "Normal Predictor"
+                },
+                {
+                    "value": "baselineonly",
+                    "label": "Baseline Only"
+                },
+                {
+                    "value": "slopeone",
+                    "label": "Slope One"
+                },
+                {
+                    "value": "coclustering",
+                    "label": "Co-Clustering"
+                }
+            ]
+        }
+    ],
+    "resourceKeys": []
+}

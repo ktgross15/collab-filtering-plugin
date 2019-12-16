@@ -1,0 +1,647 @@
+{
+    "meta": {
+        "label": "Train - Collaborative Filtering",
+        "description": "Train a collaborative filtering model using one of the algorithms in the Surprise library.\n The input dataset should have one row per rating -- with a userID column, itemID column, and rating value column. \n After selecting your algorithm(s) of choice, you may configure the hyperparameters, though you don't have to - the default values (listed) will do just fine. You may enter multiple values into the brackets for a given hyperparameter if you'd like to enable a grid search (test all possible hyperparameter combinations for a given algorithm). ALSO NOTE, any decimal hyperparameters must be entered with leading 0's to avoid JSON errors. \n For more on the algorithm choices, check out the Surprise library docs here: https://surprise.readthedocs.io/en/stable/prediction_algorithms_package.html",
+        "icon": "icon-thumbs-up-alt"
+    },
+    "kind": "PYTHON",
+    "selectableFromDataset": "input_dataset",
+    "inputRoles": [
+        {
+            "name": "input_dataset",
+            "label": "Ratings to Train",
+            "description": "This Dataset should have one row per rating -- with a userID column, itemID column, and rating value column.",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true
+        }
+    ],
+    "outputRoles": [
+        {
+            "name": "grid_search_error_metrics",
+            "label": "Grid Search Evaluation Metrics",
+            "description": "Test metrics for each algorithm and hyperparameter combination selected",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true,
+            "acceptsManagedFolder": false
+        },
+        {
+            "name": "train_preds_actuals",
+            "label": "Train dataset with predictions",
+            "description": "Dataset with records used to train the models",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true,
+            "acceptsManagedFolder": false
+        },
+        {
+            "name": "test_preds_actuals",
+            "label": "Test dataset with predictions",
+            "description": "Holdout dataset with records used to test the models",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsDataset": true,
+            "acceptsManagedFolder": false
+        },
+        {
+            "name": "grid_search_models",
+            "label": "Folder to Store Models",
+            "description": "Folder to store CF Models Trained through Grid Search.",
+            "arity": "UNARY",
+            "required": true,
+            "acceptsManagedFolder": true,
+            "acceptsDataset": false
+        }
+    ],
+    "params": [
+        {
+            "name": "sep1",
+            "label": "Required Inputs",
+            "type": "SEPARATOR"
+        },
+        {
+            "name": "user_id_col",
+            "label": "User ID Column",
+            "type": "COLUMN",
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "item_id_col",
+            "label": "Item ID Column",
+            "type": "COLUMN",
+            "mandatory": true,
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "rating_col",
+            "label": "Rating Column",
+            "type": "COLUMN",
+            "columnRole": "input_dataset"
+        },
+        {
+            "name": "ratings_scale_min",
+            "label": "Minimum Rating Value",
+            "type": "DOUBLE",
+            "mandatory": false,
+            "defaultValue": 1
+        },
+        {
+            "name": "ratings_scale_max",
+            "label": "Maximum Rating Value",
+            "type": "DOUBLE",
+            "mandatory": false,
+            "defaultValue": 5
+        },
+        {
+            "name": "k_fold_splits",
+            "label": "K Fold # Splits",
+            "description": "Number of splits in K-fold cross validation.",
+            "type": "INT",
+            "mandatory": false,
+            "defaultValue": 3
+        },
+        {
+            "name": "error_metric",
+            "label": "Error Metric",
+            "type": "SELECT",
+            "description": "Grid Search Cross Validation error metric.",
+            "selectChoices": [
+                {
+                    "value": "rmse",
+                    "label": "RMSE"
+                },
+                {
+                    "value": "mae",
+                    "label": "MAE"
+                },
+                {
+                    "value": "fcp",
+                    "label": "FCP"
+                }
+            ],
+            "defaultValue": "rmse"
+        },
+        {
+            "name": "sep2",
+            "label": "Algorithms",
+            "type": "SEPARATOR"
+        },
+        {
+            "name": "svd",
+            "label": "SVD",
+            "description": "The famous SVD matrix-factorization algorithm, as popularized by Simon Funk during the Netflix Prize.",
+            "type": "BOOLEAN",
+            "mandatory": false
+        },
+        {
+            "name": "svd_n_factors",
+            "label": "- SVD: # Factors",
+            "description": "The number of factors, or latent features. Default is 100.",
+            "type": "STRING",
+            "mandatory": false,
+            "defaultValue": "[100]",
+            "visibilityCondition": "model.svd"
+        },
+        {
+            "name": "svd_n_epochs",
+            "label": "- SVD: # Epochs",
+            "type": "STRING",
+            "description": "The number of iterations of the SGD procedure. Default is 20.",
+            "mandatory": false,
+            "defaultValue": "[20]",
+            "visibilityCondition": "model.svd"
+        },
+        {
+            "name": "svd_lr_all",
+            "label": "- SVD: Learning Rate",
+            "type": "STRING",
+            "description": "The learning rate for all parameters. Default is 0.005.",
+            "mandatory": false,
+            "defaultValue": "[0.005]",
+            "visibilityCondition": "model.svd"
+        },
+        {
+            "name": "svd_reg_all",
+            "label": "- SVD: Regularization",
+            "type": "STRING",
+            "description": "The regularization term for all parameters. Default is 0.02.",
+            "mandatory": false,
+            "defaultValue": "[0.02]",
+            "visibilityCondition": "model.svd"
+        },
+        {
+            "name": "svd_biased",
+            "label": "- SVD: Biased",
+            "type": "BOOLEAN",
+            "description": "Whether to use baselines (or biases). Default is True.",
+            "mandatory": false,
+            "defaultValue": true,
+            "visibilityCondition": "model.svd"
+        },
+        {
+            "name": "svdpp",
+            "label": "SVD++",
+            "type": "BOOLEAN",
+            "description": "An extension of SVD, taking into account implicit ratings.",
+            "mandatory": false,
+            "default": false
+        },
+        {
+            "name": "svdpp_n_factors",
+            "label": "- SVD++: # Factors",
+            "type": "STRING",
+            "description": "The number of factors, or latent features. Default is 20.",
+            "mandatory": false,
+            "defaultValue": "[20]",
+            "visibilityCondition": "model.svdpp"
+        },
+        {
+            "name": "svdpp_n_epochs",
+            "label": "- SVD++: # Epochs",
+            "type": "STRING",
+            "description": "The number of iterations of the SGD procedure. Default is 20.",
+            "mandatory": false,
+            "defaultValue": "[20]",
+            "visibilityCondition": "model.svdpp"
+        },
+        {
+            "name": "svdpp_lr_all",
+            "label": "- SVD++ Learning Rate",
+            "type": "STRING",
+            "description": "The learning rate for all parameters. Default is 0.007.",
+            "mandatory": false,
+            "defaultValue": "[0.007]",
+            "visibilityCondition": "model.svdpp"
+        },
+        {
+            "name": "svdpp_reg_all",
+            "label": "- SVD++: Regularization",
+            "type": "STRING",
+            "description": "The regularization term for all parameters. Default is 0.02.",
+            "mandatory": false,
+            "defaultValue": "[0.02]",
+            "visibilityCondition": "model.svdpp"
+        },
+        {
+            "name": "nmf",
+            "label": "NMF",
+            "type": "BOOLEAN",
+            "description": "CF algorithm based on Non-negative Matrix Factorization. It is similar to SVD, but tends to be better at dealing with sparsity.",
+            "mandatory": false
+        },
+        {
+            "name": "nmf_n_factors",
+            "label": "- NMF: # Factors",
+            "type": "STRING",
+            "description": "The number of factors, or latent features. Default is 15.",
+            "mandatory": false,
+            "defaultValue": "[15]",
+            "visibilityCondition": "model.nmf"
+        },
+        {
+            "name": "nmf_n_epochs",
+            "label": "- NMF: # Epochs",
+            "type": "STRING",
+            "description": "The number of iterations of the SGD procefure. Default is 50.",
+            "mandatory": false,
+            "defaultValue": "[50]",
+            "visibilityCondition": "model.nmf"
+        },
+        {
+            "name": "nmf_biased",
+            "label": "- NMF: Biased",
+            "type": "BOOLEAN",
+            "description": "Whether to use baselines (or biases). Default is False.",
+            "mandatory": false,
+            "defaultValue": false,
+            "visibilityCondition": "model.nmf"
+        },
+        {
+            "name": "coclustering",
+            "label": "Co-clustering",
+            "type": "BOOLEAN",
+            "description": "A CF algorithm based on co-clustering.",
+            "mandatory": false
+        },
+        {
+            "name": "coclustering_n_cltr_u",
+            "label": "- Co-clustering: # User Clusters.",
+            "description": "Default is 3.",
+            "type": "STRING",
+            "mandatory": false,
+            "defaultValue": "[3]",
+            "visibilityCondition": "model.coclustering"
+        },
+        {
+            "name": "coclustering_n_cltr_i",
+            "label": "- Co-clustering: # Item Clusters",
+            "description": "Default is 3.",
+            "type": "STRING",
+            "mandatory": false,
+            "defaultValue": "[3]",
+            "visibilityCondition": "model.coclustering"
+        },
+        {
+            "name": "coclustering_n_epochs",
+            "label": "- Co-clustering: # Epochs",
+            "description": "The number of iterations of the optimization loop. Default is 20.",
+            "type": "STRING",
+            "mandatory": false,
+            "defaultValue": "[20]",
+            "visibilityCondition": "model.coclustering"
+        },
+        {
+            "name": "slopeone",
+            "label": "Slope One",
+            "type": "BOOLEAN",
+            "description": "A simple yet accurate item-based CF algorithm.",
+            "mandatory": false
+        },
+        {
+            "name": "normalpredictor",
+            "label": "Normal Predictor",
+            "description": "CF algorithm predicting a random rating based on the distribution of the training set, which is assumed to be normal.",
+            "type": "BOOLEAN",
+            "mandatory": false
+        },
+        {
+            "name": "baselineonly",
+            "label": "Baseline Only",
+            "type": "BOOLEAN",
+            "description": "Algorithm predicting the baseline estimate for given user and item.",
+            "mandatory": false
+        },
+        {
+            "name": "baselineonly_method",
+            "label": "- Baseline Only: Method",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "als",
+                    "label": "Alternating Least Squares"
+                },
+                {
+                    "value": "sgd",
+                    "label": "Stochastic Gradient descent"
+                }
+            ],
+            "mandatory": false,
+            "description": "Optimization Method. Default is ALS.",
+            "defaultValue": "als",
+            "visibilityCondition": "model.baselineonly"
+        },
+        {
+            "name": "baselineonly_n_epochs",
+            "label": "- Baseline Only: # Epochs",
+            "type": "STRING",
+            "description": "The number of iterations of the optimization procedure. Default is 15.",
+            "mandatory": false,
+            "defaultValue": "[15]",
+            "visibilityCondition": "model.baselineonly"
+        },
+        {
+            "name": "knnbasic",
+            "label": "KNN Basic",
+            "type": "BOOLEAN",
+            "description": "A basic distance-based CF algorithm. (WARNING: computationally expensive)",
+            "mandatory": false
+        },
+        {
+            "name": "knnbasic_k",
+            "label": "- KNN Basic: k",
+            "type": "STRING",
+            "description": "The (max) number of neighbors to take into account for aggregation. Default is 40.",
+            "mandatory": false,
+            "defaultValue": "[40]",
+            "visibilityCondition": "model.knnbasic"
+        },
+        {
+            "name": "knnbasic_min_k",
+            "label": "- KNN Basic: Min k",
+            "type": "STRING",
+            "description": "The min number of neighbors to take into account for aggregation. Default is 1.",
+            "mandatory": false,
+            "defaultValue": "[1]",
+            "visibilityCondition": "model.knnbasic"
+        },
+        {
+            "name": "knnbasic_name",
+            "label": "- KNN Basic: Sim Metric",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "msd",
+                    "label": "Mean Squared Difference"
+                },
+                {
+                    "value": "cosine",
+                    "label": "Cosine"
+                },
+                {
+                    "value": "pearson",
+                    "label": "Pearson"
+                },
+                {
+                    "value": "pearson_baseline",
+                    "label": "Pearson Baseline"
+                }
+            ],
+            "mandatory": false,
+            "defaultValue": "msd",
+            "description": "Similarity Metric. Default is MSD.",
+            "visibilityCondition": "model.knnbasic"
+        },
+        {
+            "name": "knnbasic_user_based",
+            "label": "- KNN Basic: User vs Item",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": true,
+                    "label": "User-based"
+                },
+                {
+                    "value": false,
+                    "label": "Item-based"
+                }
+            ],
+            "mandatory": false,
+            "description": "User-based vs item-based collaborative filtering. Default is User-Based.",
+            "defaultValue": true,
+            "visibilityCondition": "model.knnbasic"
+        },
+        {
+            "name": "knnbaseline",
+            "label": "KNN Baseline",
+            "type": "BOOLEAN",
+            "description": "A basic CF algorithm taking into account a baseline rating. (WARNING: computationally expensive)",
+            "mandatory": false
+        },
+        {
+            "name": "knnbaseline_k",
+            "label": "- KNN Baseline: k",
+            "type": "STRING",
+            "description": "The (max) number of neighbors to take into account for aggregation. Default is 40.",
+            "mandatory": false,
+            "defaultValue": "[40]",
+            "visibilityCondition": "model.knnbaseline"
+        },
+        {
+            "name": "knnbaseline_min_k",
+            "label": "- KNN Baseline: Min k",
+            "type": "STRING",
+            "description": "The min number of neighbors to take into account for aggregation. Default is 1.",
+            "mandatory": false,
+            "defaultValue": "[1]",
+            "visibilityCondition": "model.knnbaseline"
+        },
+        {
+            "name": "knnbaseline_name",
+            "label": "- KNN Baseline: Sim Metric",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "msd",
+                    "label": "Mean Squared Difference"
+                },
+                {
+                    "value": "cosine",
+                    "label": "Cosine"
+                },
+                {
+                    "value": "pearson",
+                    "label": "Pearson"
+                },
+                {
+                    "value": "pearson_baseline",
+                    "label": "Pearson Baseline"
+                }
+            ],
+            "mandatory": false,
+            "defaultValue": "msd",
+            "description": "Similarity Metric. Default is MSD.",
+            "visibilityCondition": "model.knnbaseline"
+        },
+        {
+            "name": "knnbaseline_user_based",
+            "label": "- KNN Baseline: User vs Item",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": true,
+                    "label": "User-based"
+                },
+                {
+                    "value": false,
+                    "label": "Item-based"
+                }
+            ],
+            "defaultValue": true,
+            "mandatory": false,
+            "description": "User-based vs item-based collaborative filtering. Default is User-Based.",
+            "visibilityCondition": "model.knnbaseline"
+        },
+        {
+            "name": "knnbaseline_method",
+            "label": "- KNN Baseline: Method",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "als",
+                    "label": "Alternating Least Squares"
+                },
+                {
+                    "value": "sgd",
+                    "label": "Stochastic Gradient descent"
+                }
+            ],
+            "mandatory": false,
+            "description": "Optimization Method. Default is ALS.",
+            "defaultValue": "als",
+            "visibilityCondition": "model.knnbaseline"
+        },
+        {
+            "name": "knnwithmeans",
+            "label": "KNN w/ Means",
+            "type": "BOOLEAN",
+            "description": "A basic CF algorithm, taking into account the mean ratings of each user. (WARNING: computationally expensive)",
+            "mandatory": false
+        },
+        {
+            "name": "knnwithmeans_k",
+            "label": "- KNN w/ Means: k",
+            "type": "STRING",
+            "description": "The (max) number of neighbors to take into account for aggregation. Default is 40.",
+            "mandatory": false,
+            "defaultValue": "[40]",
+            "visibilityCondition": "model.knnwithmeans"
+        },
+        {
+            "name": "knnwithmeans_min_k",
+            "label": "- KNN w/ Means: Min k",
+            "type": "STRING",
+            "description": "The min number of neighbors to take into account for aggregation. Default is 1.",
+            "mandatory": false,
+            "defaultValue": "[1]",
+            "visibilityCondition": "model.knnwithmeans"
+        },
+        {
+            "name": "knnwithmeans_name",
+            "label": "- KNN w/ Means: Sim Metric",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "msd",
+                    "label": "Mean Squared Difference"
+                },
+                {
+                    "value": "cosine",
+                    "label": "Cosine"
+                },
+                {
+                    "value": "pearson",
+                    "label": "Pearson"
+                },
+                {
+                    "value": "pearson_baseline",
+                    "label": "Pearson Baseline"
+                }
+            ],
+            "mandatory": false,
+            "defaultValue": "msd",
+            "description": "Similarity Metric. Default is MSD.",
+            "visibilityCondition": "model.knnwithmeans"
+        },
+        {
+            "name": "knnwithmeans_user_based",
+            "label": "- KNN w/ Means: User vs Item",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": true,
+                    "label": "User-based"
+                },
+                {
+                    "value": false,
+                    "label": "Item-based"
+                }
+            ],
+            "mandatory": false,
+            "description": "User-based vs item-based collaborative filtering. Default is User-Based.",
+            "visibilityCondition": "model.knnwithmeans"
+        },
+        {
+            "name": "knnwithzscore",
+            "label": "KNN w/ Z-Score",
+            "type": "BOOLEAN",
+            "description": "A basic CF algorithm, taking into account the z-score normalization of each user. (WARNING: computationally expensive)",
+            "mandatory": false
+        },
+        {
+            "name": "knnwithzscore_k",
+            "label": "- KNN w/ Z-Score: k",
+            "type": "STRING",
+            "description": "The (max) number of neighbors to take into account for aggregation. Default is 40.",
+            "mandatory": false,
+            "defaultValue": "[40]",
+            "visibilityCondition": "model.knnwithzscore"
+        },
+        {
+            "name": "knnwithzscore_min_k",
+            "label": "- KNN w/ Z-Score: Min k",
+            "type": "STRING",
+            "description": "The min number of neighbors to take into account for aggregation. Default is 1.",
+            "mandatory": false,
+            "defaultValue": "[1]",
+            "visibilityCondition": "model.knnwithzscore"
+        },
+        {
+            "name": "knnwithzscore_name",
+            "label": "- KNN w/ Z-Score: Sim Metric",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": "msd",
+                    "label": "Mean Squared Difference"
+                },
+                {
+                    "value": "cosine",
+                    "label": "Cosine"
+                },
+                {
+                    "value": "pearson",
+                    "label": "Pearson"
+                },
+                {
+                    "value": "pearson_baseline",
+                    "label": "Pearson Baseline"
+                }
+            ],
+            "mandatory": false,
+            "defaultValue": "msd",
+            "description": "Similarity Metric. Default is MSD.",
+            "visibilityCondition": "model.knnwithzscore"
+        },
+        {
+            "name": "knnwithzscore_user_based",
+            "label": "- KNN w/ Z-Score: User vs Item",
+            "type": "SELECT",
+            "selectChoices": [
+                {
+                    "value": true,
+                    "label": "User-based"
+                },
+                {
+                    "value": false,
+                    "label": "Item-based"
+                }
+            ],
+            "defaultValue": true,
+            "mandatory": false,
+            "description": "User-based vs item-based collaborative filtering. Default is User-Based.",
+            "visibilityCondition": "model.knnwithzscore"
+        }
+    ],
+    "resourceKeys": []
+}
