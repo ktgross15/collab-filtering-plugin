@@ -1,4 +1,5 @@
 import json
+from read_inputs import *
 
 
 def add_param_to_algo_dict(algo_dictionary, algo_name, param, param_dict={}):    
