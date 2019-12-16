@@ -15,12 +15,11 @@ from surprise import accuracy
 from surprise.model_selection import GridSearchCV
 
 from dku_collab_filtering.algo_dictionary import *
+from dku_collab_filtering.read_inputs import *
+from dku_collab_filtering.pred_dataframe_gen import *
 
 
 #### READ INPUT PARAMETERS ####
-def read_recipe_config(param):
-    param_val = get_recipe_config().get(param, '')
-    return param_val
 
 user_id_col = read_recipe_config('user_id_col')
 item_id_col = read_recipe_config('item_id_col')
@@ -52,66 +51,6 @@ input_df = input_df[[user_id_col, item_id_col, rating_col]]
 # read input data into Surprise
 reader = Reader(rating_scale = (ratings_scale_min, ratings_scale_max))
 data = Dataset.load_from_df(input_df, reader)
-
-
-### DEFINE FUNCTIONS ###
-
-# def add_param_to_algo_dict(algo_dictionary, algo_name, param, param_dict={}):    
-#     algo_param_plugin = '{}_{}'.format(algo_name, param)
-#     print "Adding parameters to algo dict:", param
-    
-#     # add parameter dictionary for sim or bsl options
-#     if param in ['sim_options', 'bsl_options']:
-#         print "adding parameter dictionary"
-#         algo_dictionary[algo_name]['grid_params'][param] = param_dict
-    
-#     # add all other parameters
-#     else:
-#         param_val = read_recipe_config(algo_param_plugin)
-#         if type(param_val) == bool:
-#             param_val = [param_val]
-#         elif (len(param_val) >= 1) & (param_val != "[]"):
-#             param_val = json.loads(param_val)
-#         algo_dictionary[algo_name]['grid_params'][param] = param_val
-    
-#     return algo_dictionary
-
-
-# def add_algo_to_algo_dict(algo_dictionary, algo_bool, algo_mod, algo_name, params=[], param_dicts=[]):
-#     if algo_bool:
-#         print "ADDING", algo_name
-#         # add algo to algo_dictionary
-#         algo_dictionary[algo_name] = {}
-#         algo_dictionary[algo_name]['grid_params'] = {}
-#         algo_dictionary[algo_name]['module'] = algo_mod
-        
-#         # add each parameter to the grid search parameters
-#         for param in params:
-#             print param
-#             algo_dictionary = add_param_to_algo_dict(algo_dictionary, algo_name, param)
-        
-#         # add parameter dictionaries if necessary
-#         if len(param_dicts) >= 1:
-#             for param_dict in param_dicts:
-#                 algo_dictionary = add_param_to_algo_dict(algo_dictionary, algo_name, param, param_dict)
-                
-#     return algo_dictionary
-
-# def generate_dict_from_params(algo_dictionary, algo_bool, algo_name, inner_params):
-#     param_dict = {}
-#     if algo_bool:
-#         for inner_param in inner_params:
-#             algo_param_plugin = '{}_{}'.format(algo_name, inner_param)
-#             param_val = read_recipe_config(algo_param_plugin)
-#             print "got param val", inner_param, param_val, type(param_val)
-            
-#             # if valid parameter_value is entered, add to parameter dict
-#             if type(param_val) == bool:
-#                 param_dict[inner_param] = [param_val]
-#             elif (len(param_val) >= 1) & (param_val != "[]"):
-#                 param_dict[inner_param] = [param_val]
-         
-#     return param_dict
 
 
 def dump_modified(folder, file_name, predictions=None, algo=None):
@@ -264,39 +203,6 @@ test_score = trained_models[best_model]['model_test_score']
 
 
 ##### FORMAT PREDICTION DATASETS ####
-
-def create_ratings_df(preds, u_id_col, i_id_col):
-    iids = []
-    uids = []
-    act_rrs = []
-    est_rrs = []
-
-    for row in preds:
-        iids.append(row.iid)
-        uids.append(row.uid)
-        act_rrs.append(row.r_ui)
-        est_rrs.append(row.est)
-
-    preds_df = pd.DataFrame(columns=[u_id_col,i_id_col,'actual_rr','pred_rr'])
-    preds_df[u_id_col] = uids
-    preds_df[i_id_col] = iids
-    preds_df['actual_rr'] = act_rrs
-    preds_df['pred_rr'] = est_rrs
-    return preds_df
-
-def get_pivoted_pred_act_dfs(surprise_algo_preds, u_id_col, i_id_col):
-    # input is the best model's predictions, and pivots it to have one row per user and one column per item with user/item predictions filling such columns
-    master_df = create_ratings_df(surprise_algo_preds, u_id_col, i_id_col)
-    predictions_df_pivoted = master_df.pivot(index=u_id_col, columns=i_id_col, values='pred_rr')
-    actual_df_pivoted = master_df.pivot(index=u_id_col, columns=i_id_col, values='actual_rr')
-
-    return predictions_df_pivoted, actual_df_pivoted
-
-def merge_preds_actual_dfs(pred_df, actual_df):
-    pred_df.columns = [str(col) + '_pred' for col in pred_df.columns]
-    actual_df.columns = [str(col) + '_actual' for col in actual_df.columns]
-    full_df = pd.merge(pred_df, actual_df, left_index=True, right_index=True)
-    return full_df
 
 # generate pivoted dataframes with preds and actuals for both train and test
 test_preds_df, test_actuals_df = get_pivoted_pred_act_dfs(test_preds, user_id_col, item_id_col)
