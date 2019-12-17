@@ -1,4 +1,5 @@
 import pandas as pd
+from surprise import accuracy
 
 def create_ratings_df(preds, user_id_col, item_id_col):
     ratings_df_data = []
