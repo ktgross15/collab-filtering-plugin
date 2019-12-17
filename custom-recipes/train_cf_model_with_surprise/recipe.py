@@ -15,7 +15,7 @@ from surprise import accuracy
 from surprise.model_selection import GridSearchCV
 
 from dku_collab_filtering.algo_dictionary import *
-from dku_collab_filtering.read_inputs import *
+from dku_collab_filtering.read_write import *
 from dku_collab_filtering.pred_dataframe_gen import *
 
 
@@ -41,29 +41,34 @@ knnbaseline_bool = read_recipe_config("knnbaseline")
 knnwithmeans_bool = read_recipe_config("knnwithmeans")
 knnwithzscore_bool = read_recipe_config("knnwithzscore")
 
-
-#### READ AND FORMAT RECIPE INPUTS ####
-
+# read input data into Surprise
 input_dataset = dataiku.Dataset(get_input_names_for_role('input_dataset')[0])
 input_df = input_dataset.get_dataframe()
 input_df = input_df[[user_id_col, item_id_col, rating_col]]
-
-# read input data into Surprise
 reader = Reader(rating_scale = (ratings_scale_min, ratings_scale_max))
 data = Dataset.load_from_df(input_df, reader)
 
-
-def dump_modified(folder, file_name, predictions=None, algo=None):
-    """A basic wrapper around Pickle to serialize a list of prediction and/or an algorithm on drive."""
-
-    dump_obj = {'predictions': predictions, 'algo': algo}
-    with folder.get_writer(file_name) as file_obj:
-        pickle.dump(dump_obj, file_obj, protocol=pickle.HIGHEST_PROTOCOL)
+# generate models folder
+folder_name = get_output_names_for_role('grid_search_models')[0]
+surprise_cv_models = dataiku.Folder(folder_name)
       
     
-def test_model_return_prediction_sets(model, train, test, error_metric):
-    test_preds = model.test(test)
+# def test_model_return_prediction_sets(model, train, test, error_metric):
+
+#     test_preds = model.test(test)
+#     if error_metric == 'rmse':
+#         test_score = accuracy.rmse(test_preds)
+#     elif error_metric == 'mae':
+#         test_score = accuracy.mae(test_preds)
+#     elif error_metric == 'fcp':
+#         test_score = accuracy.fcp(test_preds)
     
+#     train_set_ready = train.build_testset()
+#     train_preds = model.test(train_set_ready)
+#     return test_preds, test_score, train_preds
+
+def generate_test_score(test_preds, error_metric):
+
     if error_metric == 'rmse':
         test_score = accuracy.rmse(test_preds)
     elif error_metric == 'mae':
@@ -71,10 +76,7 @@ def test_model_return_prediction_sets(model, train, test, error_metric):
     elif error_metric == 'fcp':
         test_score = accuracy.fcp(test_preds)
     
-    train_set_ready = train.build_testset()
-    train_preds = model.test(train_set_ready)
-
-    return test_preds, test_score, train_preds
+    return test_score
 
 
 #### GENERATE ALGO DICTIONARY WITH PARAMETERS FOR EACH ALGO INCLUDED ####
@@ -118,20 +120,15 @@ data.raw_ratings = A_raw_ratings
 test_set = data.construct_testset(B_raw_ratings)  # testset is now the set B
 train_set = data.build_full_trainset()
 
-
-# generate models folder
-folder_name = get_output_names_for_role('grid_search_models')[0]
-surprise_cv_models = dataiku.Folder(folder_name)
-
 # instantiate empty trained_models dictionary and master_cv_df dataframe
 trained_models = {}
 master_cv_df = pd.DataFrame()
 
 # for each algorithm in the user-input list, train a model and add prediction datasets/error metrics to a master trained-models dictionary
 all_algos = algo_dictionary.keys()
-for algo in all_algos:
-    model_module = algo_dictionary[algo]['module']
-    param_grid = algo_dictionary[algo]['grid_params']
+for algo_name in all_algos:
+    model_module = algo_dictionary[algo_name]['module']
+    param_grid = algo_dictionary[algo_name]['grid_params']
     print(model_module)
     print(param_grid)
     
@@ -144,13 +141,13 @@ for algo in all_algos:
         # retrain on the whole set A
         model = estimator[1]
         model.fit(train_set)
-
-        model_file_name = algo + '_best_model.pkl'
-        dump_modified(surprise_cv_models, model_file_name, algo=model)   
+        dump_to_folder(surprise_cv_models, algo_name, algo=model)
         
-        model_test_preds, model_test_score, model_train_preds = test_model_return_prediction_sets(model, train_set, test_set, error_metric)
+        model_test_preds = model.test(test_set)
+        model_train_preds = train_set.build_testset()
+        model_test_score = generate_test_score(model_test_preds, error_metric)
         
-        name = algo + estimator[0]
+        name = algo_name + estimator[0]
         trained_models[name] = {}
         trained_models[name]['model'] = model
         trained_models[name]['model_test_preds'] = model_test_preds
@@ -158,9 +155,9 @@ for algo in all_algos:
         trained_models[name]['model_train_preds'] = model_train_preds
             
     gs_results_df = pd.DataFrame.from_dict(gs.cv_results)
-    gs_results_df['algorithm'] = algo
+    gs_results_df['algorithm'] = algo_name
     
-    print('Done with CV for algorithm: ' + algo)
+    print('Done with CV for algorithm: ' + algo_name)
     master_cv_df = master_cv_df.append(gs_results_df)
        
 # modify gs output
@@ -205,10 +202,18 @@ test_score = trained_models[best_model]['model_test_score']
 ##### FORMAT PREDICTION DATASETS ####
 
 # generate pivoted dataframes with preds and actuals for both train and test
-test_preds_df, test_actuals_df = get_pivoted_pred_act_dfs(test_preds, user_id_col, item_id_col)
-train_preds_df, train_actuals_df = get_pivoted_pred_act_dfs(train_preds, user_id_col, item_id_col)
 
-# merge preds and actuals to get compairison dataframes 
+print train_preds[:20]
+
+train_master_df = create_ratings_df(train_preds, user_id_col, item_id_col)
+train_preds_df = get_pivoted_df(train_master_df, user_id_col, item_id_col, 'pred_rating')
+train_actuals_df = get_pivoted_df(train_master_df, user_id_col, item_id_col, 'actual_rating')
+
+test_master_df = create_ratings_df(test_preds, user_id_col, item_id_col)
+test_preds_df = get_pivoted_df(test_master_df, user_id_col, item_id_col, 'pred_rating')
+test_actuals_df = get_pivoted_df(test_master_df, user_id_col, item_id_col, 'actual_rating')
+
+# merge preds and actuals to get comparison dataframes 
 test_preds_actuals = merge_preds_actual_dfs(test_preds_df, test_actuals_df).reset_index()
 train_preds_actuals = merge_preds_actual_dfs(train_preds_df, train_actuals_df).reset_index()
 

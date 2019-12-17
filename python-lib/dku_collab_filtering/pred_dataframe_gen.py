@@ -22,3 +22,19 @@ def merge_preds_actual_dfs(pred_df, actual_df):
     actual_df.columns = [str(col) + '_actual' for col in actual_df.columns]
     full_df = pd.merge(pred_df, actual_df, left_index=True, right_index=True)
     return full_df
+
+
+def generate_train_test_preds(model, train, test):
+    test_preds = model.test(test)
+    train_set_ready = train.build_testset()
+    train_preds = model.test(train_set_ready)
+    return test_preds, train_preds
+
+def generate_test_score(test_preds, error_metric):
+    if error_metric == 'rmse':
+        return accuracy.rmse(test_preds)
+    elif error_metric == 'mae':
+        return accuracy.mae(test_preds)
+    elif error_metric == 'fcp':
+        return accuracy.fcp(test_preds)
+    # else??
