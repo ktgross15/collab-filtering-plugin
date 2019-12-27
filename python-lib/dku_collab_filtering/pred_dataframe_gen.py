@@ -1,5 +1,21 @@
 import pandas as pd
 from surprise import accuracy
+from dataiku.customrecipe import *
+
+def generate_dict_from_params(algo_name, inner_params):
+    param_dict = {}
+    for inner_param in inner_params:
+        algo_param_plugin = '{}_{}'.format(algo_name, inner_param)
+        param_val = get_recipe_config().get(algo_param_plugin, '')
+        print "got param val", inner_param, param_val, type(param_val)
+        
+        # if valid parameter_value is entered, add to parameter dict
+        if type(param_val) == bool:
+            param_dict[inner_param] = [param_val]
+        elif (len(param_val) >= 1) & (param_val != "[]"):
+            param_dict[inner_param] = [param_val]
+         
+    return param_dict
 
 def create_ratings_df(preds, user_id_col, item_id_col):
     ratings_df_data = []
@@ -25,11 +41,11 @@ def merge_preds_actual_dfs(pred_df, actual_df):
     return full_df
 
 
-def generate_train_test_preds(model, train, test):
-    test_preds = model.test(test)
-    train_set_ready = train.build_testset()
-    train_preds = model.test(train_set_ready)
-    return test_preds, train_preds
+# def generate_train_test_preds(model, train, test):
+#     test_preds = model.test(test)
+#     train_set_ready = train.build_testset()
+#     train_preds = model.test(train_set_ready)
+#     return test_preds, train_preds
 
 def generate_test_score(test_preds, error_metric):
     if error_metric == 'rmse':
